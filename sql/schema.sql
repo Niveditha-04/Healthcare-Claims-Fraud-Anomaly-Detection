@@ -1,4 +1,4 @@
--- raw table (exact columns from CSV) ---
+-- raw table ---
 CREATE TABLE IF NOT EXISTS claims_raw (
   DESYNPUF_ID              TEXT,
   BENE_BIRTH_DT            TEXT,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS claims_raw (
   PPPYMT_CAR               NUMERIC,
 
   CLM_ID                   BIGINT,
-  CLM_FROM_DT              TEXT,   -- keep as text for raw
+  CLM_FROM_DT              TEXT,   
   CLM_THRU_DT              TEXT,
   ICD9_DGNS_CD_1           TEXT,
   PRF_PHYSN_NPI_1          BIGINT,
