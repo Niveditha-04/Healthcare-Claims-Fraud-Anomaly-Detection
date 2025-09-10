@@ -36,7 +36,7 @@ Separate tables were set up:
 ---
 
 ## Results
-- 1M claims processed in PostgreSQL.  
+- 1M+ claims processed in PostgreSQL.  
 - ~3% of claims flagged by at least one fraud rule.  
 - Top 1% prioritized (~128k claims) for manual review.  
 - Provider scoring highlights high-risk NPIs whose flagged rates are above 90%.
