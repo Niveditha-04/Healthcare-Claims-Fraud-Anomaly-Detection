@@ -1,0 +1,11 @@
+# ignore raw data
+data/*.csv
+data/*.parquet
+
+# ignore Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# ignore OS clutter
+.DS_Store
