@@ -1,24 +1,19 @@
 from pathlib import Path
 import pandas as pd
 
-# This file lives in: <project_root>/src/peek.py
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
-# Search both the project root and an optional "data" subfolder
 SEARCH_DIRS = [PROJECT_ROOT / "data", PROJECT_ROOT]
 
-# Prefer this filename if present, otherwise pick the first CSV/Parquet found
 PREFERRED = "MedicalClaimsSynthetic1M.csv"
 
 def find_dataset():
-    # First look for the preferred file in both locations
     for d in SEARCH_DIRS:
         f = d / PREFERRED
         if f.exists():
             return f
 
-    # Otherwise, grab the first CSV/Parquet we can find
     candidates = []
     for d in SEARCH_DIRS:
         candidates += list(d.glob("*.csv"))
@@ -40,7 +35,6 @@ def main():
     if f.suffix.lower() == ".parquet":
         df = pd.read_parquet(f)
     else:
-        # Read a small sample fast
         df = pd.read_csv(f, nrows=5000)
 
     print("Rows read:", len(df))
