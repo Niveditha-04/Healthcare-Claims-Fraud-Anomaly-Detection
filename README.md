@@ -1,5 +1,3 @@
-Here is the corrected README — replace what you have with this:
-
 <div align="center">
 
 # Healthcare Claims Fraud & Anomaly Detection
