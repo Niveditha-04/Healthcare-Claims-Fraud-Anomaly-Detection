@@ -1,3 +1,5 @@
+Here is the corrected README — replace what you have with this:
+
 <div align="center">
 
 # Healthcare Claims Fraud & Anomaly Detection
@@ -27,40 +29,18 @@ Healthcare fraud costs the U.S. an estimated **$300 billion per year** — rough
 
 ## Approach
 
-### Pipeline Architecture
-CSV (1M+ rows)
-│
-▼
-┌─────────────┐ ingest.py (pandas + SQLAlchemy)
-│ claims_raw │◄────────────────────────────────────
-└─────────────┘
-│
-▼
-┌──────────────┐ clean features.sql
-│ claims_clean │◄── age · LOS · coverage · payment ratios · provider percentiles
-└──────────────┘
-│
-├──────────────────────────────────────────────┐
-▼ ▼
-┌────────────┐ rule flags.sql ┌───────────────┐ provider risk.sql
-│ rule_flags │ 5 fraud rules │ provider_risk │ composite NPI score
-└────────────┘ └───────────────┘
-│ │
-└───────────────────┬──────────────────────────┘
-▼
-┌────────────────┐ claims scored.sql
-│ claims_scored │ anomaly_score = 0.50·residual
-└────────────────┘ + 0.35·rules
-│ + 0.15·provider_risk
-▼
-┌────────────────┐ calibrate priority.sql
-│ Priority Queue│ top 1% by anomaly_score → is_priority = TRUE
-└────────────────┘
-│
-▼
-Power BI Dashboard
+### Pipeline — 5 Stages
+
+| Stage | Script | What happens |
+|-------|--------|--------------|
+| 1. Ingest | `src/ingest.py` | CSV loaded into PostgreSQL in 100k-row chunks via pandas + SQLAlchemy |
+| 2. Clean & Enrich | `sql/clean features.sql` | Derives age, length-of-stay, coverage months, payment ratios, provider P50/P95 |
+| 3. Fraud Rules | `sql/rule flags.sql` | 5 rule-based flags written per claim into `rule_flags` |
+| 4. Provider Risk | `sql/provider risk.sql` | NPI-level composite risk score (0–100) into `provider_risk` |
+| 5. Score & Prioritize | `sql/claims scored.sql` + `sql/calibrate priority.sql` | Composite anomaly score per claim; top 1% marked `is_priority = TRUE` |
 
 ### Fraud Detection Rules
+
 | # | Rule | Logic |
 |---|------|-------|
 | 1 | **Duplicate / Overlapping Claims** | Same beneficiary + diagnosis with overlapping claim dates (LAG window function) |
@@ -68,47 +48,67 @@ Power BI Dashboard
 | 3 | **Diagnosis–Procedure Mismatch** | Dialysis HCPCS codes billed for patients with no chronic kidney disease diagnosis |
 | 4 | **Upcoding** | Payment exceeds Q3 + 3×IQR for that HCPCS code — statistical outlier per procedure |
 | 5 | **Liability Anomaly** | Patient cost-share ratio outside the expected 2%–50% range |
-### Provider Risk Scoring
-Each NPI receives a composite risk score (0–100):
-risk_score = 100 × (0.40 × scaled_median_payment
-+ 0.40 × scaled_flag_rate
-+ 0.20 × scaled_procedure_variety)
 
-Signals used: total claims submitted, median payment amount, rate of flagged claims, variety of procedures billed.
-### Composite Anomaly Score
-Each claim gets a single score combining all pipeline signals:
-anomaly_score = 0.50 × payment_residual_ratio (how far above provider's P95)
-+ 0.35 × rule_score (0–5 rules triggered, normalized)
-+ 0.15 × provider_risk_score (normalized 0–1)
+### Provider Risk Score (0–100)
 
-Claims at or above the **99th percentile** are marked `is_priority = TRUE`.
+Each NPI is scored using three normalized signals:
+
+| Signal | Weight |
+|--------|--------|
+| Scaled median payment amount | 40% |
+| Scaled rate of flagged claims | 40% |
+| Scaled variety of procedures billed | 20% |
+
+### Composite Anomaly Score (per claim)
+
+Each claim gets a single score blending all pipeline outputs:
+
+| Component | Weight | Meaning |
+|-----------|--------|---------|
+| Payment residual ratio | 50% | How far the claim sits above that provider's 95th-percentile payment |
+| Rule score | 35% | Number of fraud rules triggered (0–5), normalized |
+| Provider risk score | 15% | NPI-level risk, normalized 0–1 |
+
+Claims scoring in the **top 1% (≥ 99th percentile)** are marked `is_priority = TRUE`.
+
 ---
+
 ## Results
+
 | Metric | Value |
 |--------|-------|
 | Claims processed | **1,000,000+** |
 | Fraud rules applied | **5** |
 | Claims flagged by ≥ 1 rule | **~30,000 (~3%)** |
 | Priority review queue (top 1%) | **~128,000 claims** |
-| Anomaly score threshold for priority | **≥ 0.85** |
 | High-risk NPIs identified (flag rate > 90%) | Surfaced in provider risk table |
 | ETL tables in pipeline | **5** |
 | Ingest chunk size | **100,000 rows / chunk** |
+
 ---
+
 ## Demo
+
 ### Video Walkthrough
 > *2-minute walkthrough: pipeline architecture → SQL logic → Power BI dashboard outputs.*
+
 [![Watch the Demo](https://img.shields.io/badge/Watch%20Demo-Coming%20Soon-red?style=for-the-badge&logo=youtube)](#)
+
 ### Dashboard Preview (Power BI)
+
 | View | What it shows |
 |------|---------------|
 | KPI Page | Total claims · flagged % · priority count · avg anomaly score |
 | Provider Risk | Top 20 NPIs ranked by risk score with flag rate breakdown |
-| State Trends | Fraud flag density by state code |
+| State Trends | Fraud flag density by state |
 | Priority Queue | Filterable table of ~128k priority claims for analyst review |
+
 *Dashboard screenshots will be added here.*
+
 ---
+
 ## Tech Stack
+
 | Layer | Tool |
 |-------|------|
 | Data ingestion | Python · pandas · SQLAlchemy · psycopg2 |
@@ -116,13 +116,16 @@ Claims at or above the **99th percentile** are marked `is_priority = TRUE`.
 | Fraud rules & scoring | SQL window functions · CTEs · percentile aggregates |
 | Visualization | Power BI |
 | Dataset | [Medical Claims Synthetic 1M — Kaggle](https://www.kaggle.com/datasets/drscarlat/medicalclaimssynthetic1m) |
+
 ---
+
 ## Database Schema
-Five tables form the production-style ETL pipeline:
+
 | Table | Purpose |
 |-------|---------|
 | `claims_raw` | Unprocessed data as loaded from CSV |
-| `claims_clean` | Cleaned and enriched features (age, LOS, payment ratios, provider percentiles) |
-| `rule_flags` | One row per claim with a boolean per fraud rule and a total `rule_count` |
+| `claims_clean` | Cleaned features: age, LOS, payment ratios, provider percentiles |
+| `rule_flags` | Boolean per fraud rule + total `rule_count` per claim |
 | `provider_risk` | NPI-level composite risk score |
 | `claims_scored` | Final anomaly score + `is_priority` flag per claim |
+
